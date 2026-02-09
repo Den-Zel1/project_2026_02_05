@@ -15,3 +15,4 @@ class Trash(Base):
     __tablename__ = "trash"
     id = Column(Integer, primary_key=True)
     content = Column(String)
+
