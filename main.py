@@ -1,12 +1,15 @@
 import hashlib
 from contextlib import asynccontextmanager
+from datetime import time
+from urllib.request import Request
 
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
-
 from database import engine, get_db
 from models import Base, User, Trash
 from pydantic import BaseModel
+import middleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +19,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(middleware.PrintMiddleware)
 
 class UserCreate(BaseModel):
     username: str
@@ -77,3 +81,21 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         "user_id": new_user.id,
         "username": new_user.name
     }
+@app.post("/auth")
+def auth_user(user: UserCreate, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(user.username == User.name).first()
+    if not existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Таких не знаем!"
+        )
+    # Хэшируем пароль
+    password_hash = hashlib.sha256(user.password.encode()).hexdigest()
+    password_hash = str(password_hash)
+    if password_hash != existing_user.password_hash:
+        raise HTTPException(
+            status_code=400,
+            detail="Пароль какой-то не такой!"
+        )
+    else:
+        return {"message": f"Добрый день, {user.username}!"}
