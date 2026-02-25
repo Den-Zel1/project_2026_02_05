@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     PROJECT_NAME: str
+    SECRET_KEY : str
+    ALGORITHM : str
+    TOKEN_EXPIRE_MINUTES : int
 
 
 settings = Settings()

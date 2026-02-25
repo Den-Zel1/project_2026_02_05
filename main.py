@@ -1,14 +1,16 @@
 import hashlib
 from contextlib import asynccontextmanager
-from datetime import time
+from datetime import time, timedelta, datetime
 from urllib.request import Request
 
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
+from jose import jwt
 from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import Base, User, Trash
 from pydantic import BaseModel
 import middleware
+from config import settings
 
 
 @asynccontextmanager
@@ -98,4 +100,23 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="Пароль какой-то не такой!"
         )
     else:
+        token = create_token(user.username)
         return {"message": f"Добрый день, {user.username}!"}
+
+@app.get("/")
+async def read_current_user(token: str):
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username = payload.get("sub")
+        return {"username": username, "message": "You are authenticated!"}
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def create_token(username: str):
+    expire = datetime.now() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "sub": username,
+        "exp": expire
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
