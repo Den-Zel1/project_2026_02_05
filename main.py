@@ -1,9 +1,13 @@
 import hashlib
 from contextlib import asynccontextmanager
 from datetime import time, timedelta, datetime
-from urllib.request import Request
+from fastapi import Header
+
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from sqlalchemy.orm import Session
 from database import engine, get_db
@@ -22,6 +26,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(middleware.PrintMiddleware)
+
+security = HTTPBearer()
+def create_token(username: str):
+    expire = datetime.now() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "sub": username,
+        "exp": expire
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 class UserCreate(BaseModel):
     username: str
@@ -101,22 +114,32 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
         )
     else:
         token = create_token(user.username)
-        return {"message": f"Добрый день, {user.username}!"}
+        response = JSONResponse(content={
+            "message": "У тебя валидный токен!",
+        })
+        response.set_cookie(key="access_token", value=token, httponly=True, max_age=3600)
+        return response
 
-@app.get("/")
-async def read_current_user(token: str):
+@app.get("/check-auth")
+def read_current_user(request: Request):
+    token = request.cookies.get("access_token")
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username = payload.get("sub")
-        return {"username": username, "message": "You are authenticated!"}
-    except:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        return {
+            "authenticated": True,
+            "username": username,
+            "message": "Пользователь авторизован"
+        }
+    except Exception as e:
+        print(type(e), e)
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "authenticated": False,
+                "message": "Токен недействителен!"
+            }
+        )
 
 
-def create_token(username: str):
-    expire = datetime.now() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": username,
-        "exp": expire
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
