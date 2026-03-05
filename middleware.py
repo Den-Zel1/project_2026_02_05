@@ -1,27 +1,27 @@
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-import time
+from jose import jwt
+
+from starlette.responses import RedirectResponse
+
+from config import settings, PUBLIC_URLS
 
 
 class PrintMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # 🟡 ВХОДЯЩИЙ ЗАПРОС
-        print("\n" + "=" * 50)
-        print("🔵 ПОЛУЧЕН ЗАПРОС:")
-        print(f"📌 Метод: {request.method}")
-        print(f"📍 URL: {request.url.path}")
-        print(f"🔍 Параметры: {dict(request.query_params)}")
+        url= request.url.components.path
+        if url not in PUBLIC_URLS:
+            try:
+                token = request.cookies.get("access_token")
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+                username = payload.get("sub")
 
-        # Засекаем время
-        start_time = time.time()
-
-        # 🔄 Обрабатываем запрос
-        response = await call_next(request)
-
-        # 🟢 ИСХОДЯЩИЙ ОТВЕТ
-        process_time = time.time() - start_time
-        print(f"✅ ОТВЕТ: Статус {response.status_code}")
-        print(f"⏱️ Время: {process_time:.3f} сек")
-        print("=" * 50 + "\n")
-
+            except Exception as e:
+                print(type(e))
+                return RedirectResponse(url="/login", status_code=302)
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
         return response
+

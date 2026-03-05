@@ -3,6 +3,14 @@ from pydantic.v1 import BaseSettings
 
 load_dotenv()
 
+PUBLIC_URLS = (
+    "/login",
+    "/docs",
+    "/",
+    "/register",
+    "/auth"
+)
+
 
 class Settings(BaseSettings):
     DB_DRIVER: str
@@ -12,9 +20,9 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     PROJECT_NAME: str
-    SECRET_KEY : str
-    ALGORITHM : str
-    TOKEN_EXPIRE_MINUTES : int
+    SECRET_KEY: str
+    ALGORITHM: str
+    TOKEN_EXPIRE_MINUTES: int
 
 
 settings = Settings()
