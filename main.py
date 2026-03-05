@@ -2,7 +2,7 @@ import hashlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import time, timedelta, datetime
-from fastapi import Header
+from fastapi.responses import HTMLResponse
 
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -55,10 +55,11 @@ class UserCreate(BaseModel):
     password: str
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def get_hello():
     logger.debug("Обращение к ручке get!")
-    return {"message": "Hello World!"}
+    with open("index.html", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/trash")
 def get_trash(db: Session = Depends(get_db)):

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trash & Auth API</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream: #faf7f2;
+      --paper: #f3ede3;
+      --ink: #2c2416;
+      --ink-light: #7a6e5f;
+      --accent: #c94f2a;
+      --accent-soft: #f5e8e3;
+      --green: #3a6b4a;
+      --green-soft: #e4ede7;
+      --border: #e0d8cc;
+      --shadow: rgba(44,36,22,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'Lora', Georgia, serif;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--ink);
+      color: var(--cream);
+      padding: 12px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      font-family: 'Lora', serif;
+    }
+    .topbar-left { opacity: 0.5; }
+    .online-badge {
+      display: flex; align-items: center; gap: 8px;
+      color: #a8d5b5;
+    }
+    .online-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #a8d5b5;
+      animation: blink 2.5s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 64px 48px 48px;
+      border-bottom: 1px solid var(--border);
+      max-width: 900px;
+      margin: 0 auto;
+      animation: fadeIn 0.5s ease both;
+    }
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 600;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      color: var(--ink);
+    }
+    .hero-sub {
+      font-style: italic;
+      color: var(--ink-light);
+      font-size: 16px;
+      max-width: 500px;
+      line-height: 1.7;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .layout {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: sticky;
+      top: 32px;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 12px;
+    }
+    .sidebar-link {
+      display: block;
+      font-size: 14px;
+      color: var(--ink-light);
+      text-decoration: none;
+      padding: 6px 0;
+      border-left: 2px solid transparent;
+      padding-left: 12px;
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .sidebar-link:hover {
+      color: var(--ink);
+      border-left-color: var(--accent);
+    }
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+    .sidebar-ext {
+      font-size: 12px;
+      color: var(--ink-light);
+      text-decoration: none;
+      display: block;
+      padding: 5px 0;
+      transition: color 0.15s;
+    }
+    .sidebar-ext:hover { color: var(--accent); }
+
+    /* ── CONTENT ── */
+    .content { min-width: 0; }
+
+    .group { margin-bottom: 48px; animation: fadeIn 0.5s ease both; }
+    .group:nth-child(1) { animation-delay: 0.05s; }
+    .group:nth-child(2) { animation-delay: 0.1s; }
+    .group:nth-child(3) { animation-delay: 0.15s; }
+
+    .group-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    .group-desc {
+      font-size: 13px;
+      font-style: italic;
+      color: var(--ink-light);
+      margin-bottom: 20px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px var(--shadow);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .card:hover { box-shadow: 0 4px 16px var(--shadow); }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .pill {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 2px;
+      min-width: 44px;
+      text-align: center;
+    }
+    .pill-get  { background: var(--green-soft); color: var(--green); }
+    .pill-post { background: var(--accent-soft); color: var(--accent); }
+
+    .card-path {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: var(--ink);
+      flex: 1;
+    }
+    .card-hint {
+      font-size: 13px;
+      font-style: italic;
+      color: var(--ink-light);
+    }
+    .chevron {
+      color: var(--border);
+      font-size: 14px;
+      transition: transform 0.2s;
+    }
+    .card.open .chevron { transform: rotate(90deg); }
+
+    /* ── CARD BODY ── */
+    .card-body {
+      display: none;
+      padding: 0 20px 20px;
+      border-top: 1px solid var(--paper);
+      background: var(--cream);
+    }
+    .card.open .card-body { display: block; }
+
+    .field-label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    .field-input, .field-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      background: white;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-input:focus, .field-textarea:focus {
+      border-color: var(--accent);
+    }
+    .field-textarea { resize: vertical; min-height: 90px; }
+
+    .send-btn {
+      margin-top: 16px;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 3px;
+      font-family: 'Lora', serif;
+      font-size: 13px;
+      font-style: italic;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .send-get  { background: var(--green-soft); color: var(--green); border: 1px solid #c5deca; }
+    .send-get:hover  { background: #d4ead9; }
+    .send-post { background: var(--accent-soft); color: var(--accent); border: 1px solid #e8c5b8; }
+    .send-post:hover { background: #eeddd7; }
+
+    .response-box {
+      display: none;
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--ink);
+      color: #c8d6b2;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .response-box.error { color: #e8a89a; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      .layout { grid-template-columns: 1fr; padding: 24px; }
+      .sidebar { display: none; }
+      .hero { padding: 40px 24px 32px; }
+      .topbar { padding: 12px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-left">Trash & Auth API · v1.0.0</span>
+  <span class="online-badge">
+    <span class="online-dot"></span>
+    сервер работает
+  </span>
+</div>
+
+<div class="hero">
+  <div class="hero-eyebrow">Добро пожаловать</div>
+  <h1>Регистрируйся и оставляй комментарии</h1>
+  <p class="hero-sub">Создай аккаунт, войди в систему — и делись мыслями. Всё просто.</p>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Разделы</div>
+    <span class="sidebar-link" onclick="document.getElementById('g-general').scrollIntoView({behavior:'smooth'})">Общее</span>
+    <span class="sidebar-link" onclick="document.getElementById('g-trash').scrollIntoView({behavior:'smooth'})">Корзина</span>
+    <span class="sidebar-link" onclick="document.getElementById('g-auth').scrollIntoView({behavior:'smooth'})">Авторизация</span>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-label">Документация</div>
+    <a class="sidebar-ext" href="/docs">Swagger UI →</a>
+    <a class="sidebar-ext" href="/redoc">ReDoc →</a>
+    <a class="sidebar-ext" href="/openapi.json">OpenAPI JSON →</a>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- GENERAL -->
+    <div class="group" id="g-general">
+      <div class="group-title">Общее</div>
+      <div class="group-desc">Проверка работоспособности сервера</div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-get">GET</span>
+          <span class="card-path">/</span>
+          <span class="card-hint">Hello World</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <button class="send-btn send-get" onclick="send('GET','/',null,this)">Отправить запрос</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRASH -->
+    <div class="group" id="g-trash">
+      <div class="group-title">Корзина</div>
+      <div class="group-desc">Просмотр и добавление записей в корзину</div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-get">GET</span>
+          <span class="card-path">/trash</span>
+          <span class="card-hint">Получить список</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <button class="send-btn send-get" onclick="send('GET','/trash',null,this)">Отправить запрос</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-post">POST</span>
+          <span class="card-path">/trash</span>
+          <span class="card-hint">Добавить запись</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <div class="field-label">data — строка</div>
+          <input class="field-input" id="trash-data" type="text" placeholder="Текст записи..."/>
+          <button class="send-btn send-post"
+            onclick="sendQuery('POST','/trash',{data:document.getElementById('trash-data').value},this)">
+            Отправить запрос
+          </button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTH -->
+    <div class="group" id="g-auth">
+      <div class="group-title">Авторизация</div>
+      <div class="group-desc">Регистрация, вход и проверка сессии</div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-post">POST</span>
+          <span class="card-path">/register</span>
+          <span class="card-hint">Регистрация</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <div class="field-label">Имя пользователя</div>
+          <input class="field-input" id="register-username" type="text" placeholder="user1"/>
+          <div class="field-label">Пароль</div>
+          <input class="field-input" id="register-password" type="password" placeholder="••••••••"/>
+          <button class="send-btn send-post" onclick="sendFields('POST','/register',['register-username','register-password'],['username','password'],this)">Зарегистрироваться</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-post">POST</span>
+          <span class="card-path">/auth</span>
+          <span class="card-hint">Аутентификация</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <div class="field-label">Имя пользователя</div>
+          <input class="field-input" id="auth-username" type="text" placeholder="user1"/>
+          <div class="field-label">Пароль</div>
+          <input class="field-input" id="auth-password" type="password" placeholder="••••••••"/>
+          <button class="send-btn send-post" onclick="sendFields('POST','/auth',['auth-username','auth-password'],['username','password'],this)">Войти через /auth</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-get">GET</span>
+          <span class="card-path">/check-auth</span>
+          <span class="card-hint">Проверить сессию</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <button class="send-btn send-get" onclick="send('GET','/check-auth',null,this)">Отправить запрос</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" onclick="toggle(this)">
+          <span class="pill pill-post">POST</span>
+          <span class="card-path">/login</span>
+          <span class="card-hint">Войти</span>
+          <span class="chevron">›</span>
+        </div>
+        <div class="card-body">
+          <div class="field-label">Имя пользователя</div>
+          <input class="field-input" id="login-username" type="text" placeholder="user1"/>
+          <div class="field-label">Пароль</div>
+          <input class="field-input" id="login-password" type="password" placeholder="••••••••"/>
+          <button class="send-btn send-post" onclick="sendFields('POST','/login',['login-username','login-password'],['username','password'],this)">Войти</button>
+          <pre class="response-box"></pre>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  function toggle(head) {
+    head.closest('.card').classList.toggle('open');
+  }
+
+  function show(btn, text, isErr) {
+    const pre = btn.nextElementSibling;
+    pre.style.display = 'block';
+    pre.className = 'response-box' + (isErr ? ' error' : '');
+    pre.textContent = text;
+  }
+
+  async function send(method, url, body, btn) {
+    show(btn, '...', false);
+    try {
+      const res = await fetch(url, { method, body });
+      const data = await res.json();
+      show(btn, JSON.stringify(data, null, 2), res.status >= 400);
+    } catch(e) { show(btn, 'Ошибка: ' + e.message, true); }
+  }
+
+  async function sendJson(method, url, id, btn) {
+    show(btn, '...', false);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: document.getElementById(id).value
+      });
+      const data = await res.json();
+      show(btn, JSON.stringify(data, null, 2), res.status >= 400);
+    } catch(e) { show(btn, 'Ошибка: ' + e.message, true); }
+  }
+
+  async function sendFields(method, url, ids, keys, btn) {
+    show(btn, '...', false);
+    try {
+      const body = {};
+      ids.forEach((id, i) => body[keys[i]] = document.getElementById(id).value);
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      show(btn, JSON.stringify(data, null, 2), res.status >= 400);
+    } catch(e) { show(btn, 'Ошибка: ' + e.message, true); }
+  }
+
+  async function sendQuery(method, url, params, btn) {
+    show(btn, '...', false);
+    try {
+      const q = new URLSearchParams(params).toString();
+      const res = await fetch(`${url}?${q}`, { method });
+      const data = await res.json();
+      show(btn, JSON.stringify(data, null, 2), res.status >= 400);
+    } catch(e) { show(btn, 'Ошибка: ' + e.message, true); }
+  }
+</script>
+</body>
+</html>
