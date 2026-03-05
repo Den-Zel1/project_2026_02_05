@@ -2,10 +2,10 @@ import hashlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import time, timedelta, datetime
-from fastapi import Header
+import os
 
 from fastapi.responses import JSONResponse
-from fastapi import Request
+
 
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,11 +17,20 @@ from pydantic import BaseModel
 import middleware
 from config import settings
 from logger import setup_logging
+from fastapi.responses import HTMLResponse
+
+
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
+
+
 
 
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
 
 
 @asynccontextmanager
@@ -55,10 +64,11 @@ class UserCreate(BaseModel):
     password: str
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def get_hello():
     logger.debug("Обращение к ручке get!")
-    return {"message": "Hello World!"}
+    with open("index.html", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/trash")
 def get_trash(db: Session = Depends(get_db)):
