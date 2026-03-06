@@ -8,7 +8,10 @@ PUBLIC_URLS = (
     "/docs",
     "/",
     "/register",
-    "/auth"
+    "/auth",
+    "/openapi.json",
+    "/redoc",
+    "/static"
 )
 
 

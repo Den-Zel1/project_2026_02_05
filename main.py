@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
-from fastapi import FastAPI, Depends, HTTPException, APIRouter
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from sqlalchemy.orm import Session
@@ -17,8 +17,6 @@ from pydantic import BaseModel
 import middleware
 from config import settings
 from logger import setup_logging
-
-
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -33,15 +31,12 @@ async def lifespan(app: FastAPI):
     engine.dispose()
 
 
-
-
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(middleware.PrintMiddleware)
 
-
-
-
 security = HTTPBearer()
+
+
 def create_token(username: str):
     expire = datetime.now() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
     payload = {
@@ -49,6 +44,7 @@ def create_token(username: str):
         "exp": expire
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
 
 class UserCreate(BaseModel):
     username: str
@@ -61,6 +57,7 @@ def get_hello():
     with open("index.html", encoding="utf-8") as f:
         return f.read()
 
+
 @app.get("/trash")
 def get_trash(db: Session = Depends(get_db)):
     users = db.query(Trash).all()
@@ -69,14 +66,15 @@ def get_trash(db: Session = Depends(get_db)):
         for user in users
     ]}
 
+
 @app.post("/trash")
-def add_trash(data:str, db: Session = Depends(get_db)):
-    xer = Trash(content = data)
+def add_trash(data: str, db: Session = Depends(get_db)):
+    xer = Trash(content=data)
     db.add(xer)
     db.commit()
     logger.debug(f"Пользователь сделал новую запись {xer.id}")
     db.refresh(xer)
-    return {"id":xer.id}
+    return {"id": xer.id}
 
 
 @app.post("/register")
@@ -114,6 +112,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         "user_id": new_user.id,
         "username": new_user.name
     }
+
+
 @app.post("/auth")
 def auth_user(user: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(user.username == User.name).first()
@@ -142,6 +142,7 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
         logger.debug(f"Пользователь {user.username} успешно авторизовался ")
         return response
 
+
 @app.get("/check-auth")
 def read_current_user(request: Request):
     token = request.cookies.get("access_token")
@@ -162,23 +163,18 @@ def read_current_user(request: Request):
                 "message": "Токен недействителен!"
             }
         )
-@app.post("/login")
-def login_user(request: Request):
-    token = request.cookies.get("access_token")
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username = payload.get("sub")
-        return {
-            "authenticated": True,
-            "username": username,
-            "message": "Пользователь авторизован"
-        }
-    except Exception as e:
-        print(type(e), e)
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "authenticated": False,
-                "message": "Токен недействителен!"
-            })
 
+
+@app.get("/logout")
+def logout_user(request: Request, response: Response):
+    username = request.state.username
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None,  # укажите если нужно
+        secure=True,  # True для HTTPS
+        httponly=True,
+        samesite="lax"
+    )
+    logger.debug(f"Пользователь {username}  вышел из системы")
+    return {"message": "Успешный выход"}
