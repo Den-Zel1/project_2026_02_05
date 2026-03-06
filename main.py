@@ -74,6 +74,7 @@ def add_trash(data:str, db: Session = Depends(get_db)):
     xer = Trash(content = data)
     db.add(xer)
     db.commit()
+    logger.debug(f"Пользователь сделал новую запись {xer.id}")
     db.refresh(xer)
     return {"id":xer.id}
 
