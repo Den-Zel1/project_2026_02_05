@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from contextlib import asynccontextmanager
-from datetime import time, timedelta, datetime
+from datetime import timedelta, datetime
 from fastapi.responses import HTMLResponse
 
 from fastapi.responses import JSONResponse
@@ -17,6 +17,8 @@ from pydantic import BaseModel
 import middleware
 from config import settings
 from logger import setup_logging
+import os
+
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -34,7 +36,44 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(middleware.PrintMiddleware)
 
+
 security = HTTPBearer()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(
+        "Request started",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+        },
+    )
+
+    response = await call_next(request)
+
+    logger.info(
+        "Request completed",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+        },
+    )
+
+    return response
+
+
+@app.get("/")
+async def root():
+    logger.info("Root endpoint called")
+    return {"message": "Hello World"}
+
+
+@app.get("/error")
+async def error():
+    logger.error("This is a test error", extra={"error_type": "test"})
+    return {"error": "Something went wrong"}
 
 
 def create_token(username: str):
@@ -139,7 +178,10 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
             "message": "У тебя валидный токен!",
         })
         response.set_cookie(key="access_token", value=token, httponly=True, max_age=3600)
-        logger.debug(f"Пользователь {user.username} успешно авторизовался ")
+        logger.info(
+            f"Пользователь {user.username} успешно авторизовался",
+            extra={"username": user.username},
+        )
         return response
 
 
@@ -176,5 +218,8 @@ def logout_user(request: Request, response: Response):
         httponly=True,
         samesite="lax"
     )
-    logger.debug(f"Пользователь {username}  вышел из системы")
+    logger.info(
+        f"Пользователь {username} вышел из системы",
+        extra={"username": username},
+    )
     return {"message": "Успешный выход"}

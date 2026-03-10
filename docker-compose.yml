@@ -4,13 +4,14 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"  # Хост:8000 → Контейнер:8000
+      - "8000:8000"
     volumes:
       - .:/app
     depends_on:
       db:
         condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - monitoring
 
   db:
     image: postgres:15-alpine
@@ -22,7 +23,6 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     ports:
       - "5432:5432"
     healthcheck:
@@ -30,6 +30,47 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - monitoring
+
+  # Простой Elasticsearch для разработки
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false  # отключаем безопасность для простоты
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m  # ограничиваем память
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - monitoring
+
+  # 📊 Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
 
 volumes:
   postgres_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  monitoring:
+    driver: bridge
+
+

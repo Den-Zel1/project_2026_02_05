@@ -1,0 +1,10 @@
+﻿{"index":{"_index":"fastapi-logs"}}
+{"@timestamp":"2024-01-15T10:00:00.000Z","level":"INFO","message":"User logged in","service":"fastapi-app","method":"POST","path":"/auth/login","status_code":200,"duration_ms":45,"user_id":123}
+{"index":{"_index":"fastapi-logs"}}
+{"@timestamp":"2024-01-15T10:01:00.000Z","level":"ERROR","message":"Database connection failed","service":"fastapi-app","method":"GET","path":"/users","status_code":500,"duration_ms":2340,"user_id":null}
+{"index":{"_index":"fastapi-logs"}}
+{"@timestamp":"2024-01-15T10:02:00.000Z","level":"WARNING","message":"Slow query detected","service":"fastapi-app","method":"GET","path":"/products/search","status_code":200,"duration_ms":4560,"user_id":456}
+{"index":{"_index":"fastapi-logs"}}
+{"@timestamp":"2024-01-15T10:03:00.000Z","level":"INFO","message":"Order created","service":"fastapi-app","method":"POST","path":"/orders","status_code":201,"duration_ms":120,"user_id":789,"order_id":"ORD-12345"}
+{"index":{"_index":"fastapi-logs"}}
+{"@timestamp":"2024-01-15T10:04:00.000Z","level":"ERROR","message":"Authentication failed","service":"fastapi-app","method":"POST","path":"/auth/login","status_code":401,"duration_ms":23,"user_id":999}
