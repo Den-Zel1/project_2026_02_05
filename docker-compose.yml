@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   app:
     build: .
@@ -9,6 +11,8 @@ services:
       - .:/app
     depends_on:
       db:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - monitoring
@@ -26,29 +30,37 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      # Проверка готовности базы данных
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USER} -d $${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - monitoring
 
-  # Простой Elasticsearch для разработки
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false  # отключаем безопасность для простоты
-      - ES_JAVA_OPTS=-Xms256m -Xmx256m  # ограничиваем память
+      - xpack.security.enabled=false
+      # 512MB — необходимый минимум для стабильной работы версии 8.x
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - monitoring
+    healthcheck:
+      # Проверка статуса кластера (ждем 'green' или 'yellow').
+      # Используем встроенный в образ 'curl'
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"\\(green\\|yellow\\)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s # Первые 30 сек не считаем ошибкой (время на загрузку JVM)
 
-  # 📊 Grafana для визуализации
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -60,7 +72,8 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     networks:
       - monitoring
 
@@ -72,5 +85,3 @@ volumes:
 networks:
   monitoring:
     driver: bridge
-
-

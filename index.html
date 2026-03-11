@@ -434,13 +434,13 @@
 
       <div class="card">
   <div class="card-head" onclick="toggle(this)">
-    <span class="pill pill-post">POST</span>
+    <span class="pill pill-get">GET</span>
     <span class="card-path">/logout</span>
     <span class="card-hint">Выйти из системы</span>
     <span class="chevron">›</span>
   </div>
   <div class="card-body">
-    <button class="send-btn send-post" onclick="sendRequest('POST','/logout',this)">Выйти из системы</button>
+    <button class="send-btn send-get" onclick="send('GET','/logout',null,this)">Выйти из системы</button>
     <pre class="response-box"></pre>
   </div>
 </div>

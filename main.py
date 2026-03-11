@@ -2,23 +2,21 @@ import hashlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta, datetime
-from fastapi.responses import HTMLResponse
-
-from fastapi.responses import JSONResponse
-from fastapi import Request
 
 from fastapi import FastAPI, Depends, HTTPException, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
 from jose import jwt
-from sqlalchemy.orm import Session
-from database import engine, get_db
-from models import Base, User, Trash
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 import middleware
 from config import settings
+from database import engine, get_db
 from logger import setup_logging
-import os
-
+from models import Base, User, Trash
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -35,7 +33,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(middleware.PrintMiddleware)
-
 
 security = HTTPBearer()
 
@@ -62,12 +59,6 @@ async def log_requests(request: Request, call_next):
     )
 
     return response
-
-
-@app.get("/")
-async def root():
-    logger.info("Root endpoint called")
-    return {"message": "Hello World"}
 
 
 @app.get("/error")

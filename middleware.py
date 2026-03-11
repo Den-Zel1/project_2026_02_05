@@ -1,7 +1,6 @@
-from fastapi import FastAPI, Request
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
 from jose import jwt
-
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from config import settings, PUBLIC_URLS
