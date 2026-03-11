@@ -1,24 +1,22 @@
 import hashlib
 import logging
 from contextlib import asynccontextmanager
-from datetime import time, timedelta, datetime
-from fastapi.responses import HTMLResponse
+from datetime import timedelta, datetime
 
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi import Request
-
-from fastapi import FastAPI, Depends, HTTPException, APIRouter
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
 from jose import jwt
-from sqlalchemy.orm import Session
-from database import engine, get_db
-from models import Base, User, Trash
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 import middleware
 from config import settings
+from database import engine, get_db
 from logger import setup_logging
-
-
+from models import Base, User, Trash
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -33,15 +31,42 @@ async def lifespan(app: FastAPI):
     engine.dispose()
 
 
-
-
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(middleware.PrintMiddleware)
 
-
-
-
 security = HTTPBearer()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(
+        "Request started",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+        },
+    )
+
+    response = await call_next(request)
+
+    logger.info(
+        "Request completed",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+        },
+    )
+
+    return response
+
+
+@app.get("/error")
+async def error():
+    logger.error("This is a test error", extra={"error_type": "test"})
+    return {"error": "Something went wrong"}
+
+
 def create_token(username: str):
     expire = datetime.now() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
     payload = {
@@ -49,6 +74,7 @@ def create_token(username: str):
         "exp": expire
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
 
 class UserCreate(BaseModel):
     username: str
@@ -61,6 +87,7 @@ def get_hello():
     with open("index.html", encoding="utf-8") as f:
         return f.read()
 
+
 @app.get("/trash")
 def get_trash(db: Session = Depends(get_db)):
     users = db.query(Trash).all()
@@ -69,14 +96,15 @@ def get_trash(db: Session = Depends(get_db)):
         for user in users
     ]}
 
+
 @app.post("/trash")
-def add_trash(data:str, db: Session = Depends(get_db)):
-    xer = Trash(content = data)
+def add_trash(data: str, db: Session = Depends(get_db)):
+    xer = Trash(content=data)
     db.add(xer)
     db.commit()
     logger.debug(f"Пользователь сделал новую запись {xer.id}")
     db.refresh(xer)
-    return {"id":xer.id}
+    return {"id": xer.id}
 
 
 @app.post("/register")
@@ -114,6 +142,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         "user_id": new_user.id,
         "username": new_user.name
     }
+
+
 @app.post("/auth")
 def auth_user(user: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(user.username == User.name).first()
@@ -139,8 +169,12 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
             "message": "У тебя валидный токен!",
         })
         response.set_cookie(key="access_token", value=token, httponly=True, max_age=3600)
-        logger.debug(f"Пользователь {user.username} успешно авторизовался ")
+        logger.info(
+            f"Пользователь {user.username} успешно авторизовался",
+            extra={"username": user.username},
+        )
         return response
+
 
 @app.get("/check-auth")
 def read_current_user(request: Request):
@@ -162,23 +196,21 @@ def read_current_user(request: Request):
                 "message": "Токен недействителен!"
             }
         )
-@app.post("/login")
-def login_user(request: Request):
-    token = request.cookies.get("access_token")
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username = payload.get("sub")
-        return {
-            "authenticated": True,
-            "username": username,
-            "message": "Пользователь авторизован"
-        }
-    except Exception as e:
-        print(type(e), e)
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "authenticated": False,
-                "message": "Токен недействителен!"
-            })
 
+
+@app.get("/logout")
+def logout_user(request: Request, response: Response):
+    username = request.state.username
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None,  # укажите если нужно
+        secure=True,  # True для HTTPS
+        httponly=True,
+        samesite="lax"
+    )
+    logger.info(
+        f"Пользователь {username} вышел из системы",
+        extra={"username": username},
+    )
+    return {"message": "Успешный выход"}
