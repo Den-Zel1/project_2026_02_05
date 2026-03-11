@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from datetime import timedelta, datetime
 
@@ -18,7 +19,7 @@ from database import engine, get_db
 from logger import setup_logging
 from models import Base, User, Trash
 
-setup_logging()
+queue_listener = setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -28,20 +29,26 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)  # Создаем новые таблицы
     yield
     logger.warning("Приложение останавливается")
+    queue_listener.stop()
     engine.dispose()
 
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(middleware.PrintMiddleware)
+app.add_middleware(middleware.AuthMiddleware)
 
 security = HTTPBearer()
 
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    request_id = str(uuid.uuid4())[:8]
+    request.state.request_id = request_id
+
     logger.info(
-        "Request started",
+        "Request started: %s %s",
+        request.method, request.url.path,
         extra={
+            "request_id": request_id,
             "method": request.method,
             "path": request.url.path,
         },
@@ -50,8 +57,10 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
 
     logger.info(
-        "Request completed",
+        "Request completed: %s %s -> %s",
+        request.method, request.url.path, response.status_code,
         extra={
+            "request_id": request_id,
             "method": request.method,
             "path": request.url.path,
             "status": response.status_code,
@@ -83,7 +92,6 @@ class UserCreate(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 def get_hello():
-    logger.debug("Обращение к ручке get!")
     with open("index.html", encoding="utf-8") as f:
         return f.read()
 
@@ -102,7 +110,7 @@ def add_trash(data: str, db: Session = Depends(get_db)):
     xer = Trash(content=data)
     db.add(xer)
     db.commit()
-    logger.debug(f"Пользователь сделал новую запись {xer.id}")
+    logger.info("Пользователь сделал новую запись %s", xer.id)
     db.refresh(xer)
     return {"id": xer.id}
 
@@ -133,7 +141,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     # Сохраняем в базу данных
     db.add(new_user)
     db.commit()
-    logger.debug(f"Новый пользователь {new_user} успешно добавлен")
+    logger.info("Новый пользователь %s успешно добавлен", new_user.name)
     db.refresh(new_user)
 
     # Возвращаем ответ (без пароля!)
@@ -148,7 +156,11 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 def auth_user(user: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(user.username == User.name).first()
     if not existing_user:
-        logger.debug(f"Пользователь пытается зайти под недействильным логином {user.username}")
+        logger.warning(
+            "Попытка входа под несуществующим логином: %s",
+            user.username,
+            extra={"username": user.username},
+        )
         raise HTTPException(
             status_code=400,
             detail="Таких не знаем!"
@@ -157,7 +169,11 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
     password_hash = hashlib.sha256(user.password.encode()).hexdigest()
     password_hash = str(password_hash)
     if password_hash != existing_user.password_hash:
-        logger.debug(f"Пользователь {user.username} ввел невалидный пароль")
+        logger.warning(
+            "Неверный пароль для пользователя: %s",
+            user.username,
+            extra={"username": user.username},
+        )
         raise HTTPException(
             status_code=400,
             detail="Пароль какой-то не такой!"
@@ -170,7 +186,8 @@ def auth_user(user: UserCreate, db: Session = Depends(get_db)):
         })
         response.set_cookie(key="access_token", value=token, httponly=True, max_age=3600)
         logger.info(
-            f"Пользователь {user.username} успешно авторизовался",
+            "Пользователь %s успешно авторизовался",
+            user.username,
             extra={"username": user.username},
         )
         return response
@@ -188,7 +205,11 @@ def read_current_user(request: Request):
             "message": "Пользователь авторизован"
         }
     except Exception as e:
-        print(type(e), e)
+        logger.warning(
+            "Невалидный токен: %s — %s",
+            type(e).__name__, e,
+            extra={"error": str(e)},
+        )
         raise HTTPException(
             status_code=401,
             detail={
@@ -210,7 +231,8 @@ def logout_user(request: Request, response: Response):
         samesite="lax"
     )
     logger.info(
-        f"Пользователь {username} вышел из системы",
+        "Пользователь %s вышел из системы",
+        username,
         extra={"username": username},
     )
     return {"message": "Успешный выход"}
