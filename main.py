@@ -19,7 +19,7 @@ from config import settings
 from database import engine, get_db
 from logger import setup_logging
 from models import Base, User, Trash
-from simple_producer import TaskPayload, publish
+from simple_producer import publish
 
 queue_listener = setup_logging()
 logger = logging.getLogger(__name__)
@@ -94,6 +94,7 @@ def create_token(username: str):
 class UserCreate(BaseModel):
     username: str
     password: str
+    email: str
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -122,7 +123,7 @@ def add_trash(data: str, db: Session = Depends(get_db)):
 
 
 @app.post("/register")
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     """
     Простой эндпоинт для регистрации пользователя
     """
@@ -141,7 +142,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     # Создаем нового пользователя
     new_user = User(
         name=user.username,
-        password_hash=password_hash
+        password_hash=password_hash,
+        email=user.email
     )
 
     # Сохраняем в базу данных
@@ -149,6 +151,9 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     logger.info("Новый пользователь %s успешно добавлен", new_user.name)
     db.refresh(new_user)
+
+    body = {"email": new_user.email, "name": new_user.name}
+    await publish(app.state.channel, body, settings.RABBIT_QUEUE)
 
     # Возвращаем ответ (без пароля!)
     return {
@@ -243,7 +248,8 @@ def logout_user(request: Request, response: Response):
     )
     return {"message": "Успешный выход"}
 
+
 @app.post("/publish")
-async def publish_endpoint(request: Request, body: TaskPayload):
+async def publish_endpoint(request: Request, body: dict):
     await publish(request.app.state.channel, body, settings.RABBIT_QUEUE)
     return {"status": "ok"}
