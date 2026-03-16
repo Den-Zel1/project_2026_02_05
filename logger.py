@@ -9,7 +9,7 @@ class ElasticsearchHandler(logging.Handler):
         self,
         hosts: list[str] | None = None,
         index: str = "fastapi-logs",
-        level: int = logging.DEBUG,
+        level: int = logging.WARNING,
         timeout: float = 2.0,
         total_timeout: float = 5.0,
         max_retries: int = 10,
