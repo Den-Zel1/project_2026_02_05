@@ -4,6 +4,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import timedelta, datetime
 
+import aio_pika
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -18,6 +19,7 @@ from config import settings
 from database import engine, get_db
 from logger import setup_logging
 from models import Base, User, Trash
+from simple_producer import TaskPayload, publish
 
 queue_listener = setup_logging()
 logger = logging.getLogger(__name__)
@@ -26,9 +28,13 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Приложение запускается")
-    Base.metadata.create_all(bind=engine)  # Создаем новые таблицы
+    app.state.rabbit = await aio_pika.connect_robust(settings.AMQP_URL)
+    app.state.channel = await app.state.rabbit.channel()
+    await app.state.channel.declare_queue(settings.RABBIT_QUEUE, durable=True)
+    Base.metadata.create_all(bind=engine)
     yield
     logger.warning("Приложение останавливается")
+    await app.state.rabbit.close()
     queue_listener.stop()
     engine.dispose()
 
@@ -236,3 +242,8 @@ def logout_user(request: Request, response: Response):
         extra={"username": username},
     )
     return {"message": "Успешный выход"}
+
+@app.post("/publish")
+async def publish_endpoint(request: Request, body: TaskPayload):
+    await publish(request.app.state.channel, body, settings.RABBIT_QUEUE)
+    return {"status": "ok"}

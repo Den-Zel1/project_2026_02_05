@@ -10,6 +10,7 @@ PUBLIC_URLS = (
     "/register",
     "/auth",
     "/openapi.json",
+    "/publish",
     "/redoc",
     "/static"
 )
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     TOKEN_EXPIRE_MINUTES: int
+    AMQP_URL: str
+    RABBIT_QUEUE: str
+
 
 
 settings = Settings()
